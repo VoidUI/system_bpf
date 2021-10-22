@@ -50,7 +50,7 @@
 #define BPF_FS_PATH "/sys/fs/bpf/"
 
 // Size of the BPF log buffer for verifier logging
-#define BPF_LOAD_LOG_SZ 0x1ffff
+#define BPF_LOAD_LOG_SZ 0xfffff
 
 using android::base::StartsWith;
 using android::base::unique_fd;
