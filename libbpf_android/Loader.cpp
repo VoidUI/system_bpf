@@ -730,7 +730,7 @@ static int loadCodeSections(const char* elfPath, vector<codeSection>& cs, const 
                 for (const auto& line : lines) ALOGW("%s", line.c_str());
                 ALOGW("bpf_prog_load - END log_buf contents.");
 
-                if (cs[i].prog_def->optional) {
+                if (cs[i].prog_def.has_value() && cs[i].prog_def->optional) {
                     ALOGW("failed program is marked optional - continuing...");
                     continue;
                 }
