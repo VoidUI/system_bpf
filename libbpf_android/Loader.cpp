@@ -214,7 +214,7 @@ unsigned int readSectionUint(const char* name, ifstream& elfFile, unsigned int d
     vector<char> theBytes;
     int ret = readSectionByName(name, elfFile, theBytes);
     if (ret) {
-        ALOGD("Couldn't find section %s (defaulting to %u [0x%x]).\n", name, defVal, defVal);
+        ALOGV("Couldn't find section %s (defaulting to %u [0x%x]).\n", name, defVal, defVal);
         return defVal;
     } else if (theBytes.size() < sizeof(unsigned int)) {
         ALOGE("Section %s too short (defaulting to %u [0x%x]).\n", name, defVal, defVal);
@@ -368,7 +368,7 @@ static int getSectionSymNames(ifstream& elfFile, const string& sectionName, vect
 
     /* No section found with matching name*/
     if (sec_idx == -1) {
-        ALOGW("No %s section could be found in elf object\n", sectionName.c_str());
+        ALOGV("No %s section could be found in elf object\n", sectionName.c_str());
         return -1;
     }
 
@@ -420,7 +420,7 @@ static int readCodeSections(ifstream& elfFile, vector<codeSection>& cs, size_t s
 
             ret = readSectionByIdx(elfFile, i, cs_temp.data);
             if (ret) return ret;
-            ALOGD("Loaded code section %d (%s)\n", i, name.c_str());
+            ALOGV("Loaded code section %d (%s)\n", i, name.c_str());
 
             vector<string> csSymNames;
             ret = getSectionSymNames(elfFile, oldName, csSymNames);
@@ -441,13 +441,13 @@ static int readCodeSections(ifstream& elfFile, vector<codeSection>& cs, size_t s
             if (isRelSection(cs_temp, name)) {
                 ret = readSectionByIdx(elfFile, i + 1, cs_temp.rel_data);
                 if (ret) return ret;
-                ALOGD("Loaded relo section %d (%s)\n", i, name.c_str());
+                ALOGV("Loaded relo section %d (%s)\n", i, name.c_str());
             }
         }
 
         if (cs_temp.data.size() > 0) {
             cs.push_back(std::move(cs_temp));
-            ALOGD("Adding section %d to cs list\n", i);
+            ALOGV("Adding section %d to cs list\n", i);
         }
     }
     return 0;
@@ -544,7 +544,7 @@ static int createMaps(const char* elfPath, ifstream& elfFile, vector<unique_fd>&
         if (access(mapPinLoc.c_str(), F_OK) == 0) {
             fd.reset(bpf_obj_get(mapPinLoc.c_str()));
             saved_errno = errno;
-            ALOGD("bpf_create_map reusing map %s, ret: %d\n", mapNames[i].c_str(), fd.get());
+            ALOGV("bpf_create_map reusing map %s, ret: %d\n", mapNames[i].c_str(), fd.get());
             reuse = true;
         } else {
             enum bpf_map_type type = md[i].type;
@@ -571,7 +571,7 @@ static int createMaps(const char* elfPath, ifstream& elfFile, vector<unique_fd>&
             fd.reset(bpf_create_map(type, mapNames[i].c_str(), md[i].key_size, md[i].value_size,
                                     md[i].max_entries, md[i].map_flags));
             saved_errno = errno;
-            ALOGD("bpf_create_map name %s, ret: %d\n", mapNames[i].c_str(), fd.get());
+            ALOGV("bpf_create_map name %s, ret: %d\n", mapNames[i].c_str(), fd.get());
         }
 
         if (fd < 0) return -saved_errno;
@@ -620,7 +620,7 @@ static void applyRelo(void* insnsPtr, Elf64_Addr offset, int fd) {
     insnIndex = offset / sizeof(struct bpf_insn);
     insn = &insns[insnIndex];
 
-    ALOGD("applying relo to instruction at byte offset: %llu, "
+    ALOGV("applying relo to instruction at byte offset: %llu, "
           "insn offset %d, insn %llx",
           (unsigned long long)offset, insnIndex, *(unsigned long long*)insn);
 
@@ -680,7 +680,7 @@ static int loadCodeSections(const char* elfPath, vector<codeSection>& cs, const 
         if (cs[i].prog_def.has_value()) {
             unsigned min_kver = cs[i].prog_def->min_kver;
             unsigned max_kver = cs[i].prog_def->max_kver;
-            ALOGD("cs[%d].name:%s min_kver:%x .max_kver:%x (kvers:%x)\n", i, name.c_str(), min_kver,
+            ALOGV("cs[%d].name:%s min_kver:%x .max_kver:%x (kvers:%x)\n", i, name.c_str(), min_kver,
                   max_kver, kvers);
             if (kvers < min_kver) continue;
             if (kvers >= max_kver) continue;
@@ -689,7 +689,7 @@ static int loadCodeSections(const char* elfPath, vector<codeSection>& cs, const 
             bpfMaxVer = cs[i].prog_def->bpfloader_max_ver;
         }
 
-        ALOGD("cs[%d].name:%s requires bpfloader version [0x%05x,0x%05x)\n", i, name.c_str(),
+        ALOGV("cs[%d].name:%s requires bpfloader version [0x%05x,0x%05x)\n", i, name.c_str(),
               bpfMinVer, bpfMaxVer);
         if (BPFLOADER_VERSION < bpfMinVer) continue;
         if (BPFLOADER_VERSION >= bpfMaxVer) continue;
@@ -710,7 +710,7 @@ static int loadCodeSections(const char* elfPath, vector<codeSection>& cs, const 
         progPinLoc += name;
         if (access(progPinLoc.c_str(), F_OK) == 0) {
             fd = retrieveProgram(progPinLoc.c_str());
-            ALOGD("New bpf prog load reusing prog %s, ret: %d (%s)\n", progPinLoc.c_str(), fd,
+            ALOGV("New bpf prog load reusing prog %s, ret: %d (%s)\n", progPinLoc.c_str(), fd,
                   (fd < 0 ? std::strerror(errno) : "no error"));
             reuse = true;
         } else {
@@ -719,18 +719,18 @@ static int loadCodeSections(const char* elfPath, vector<codeSection>& cs, const 
             fd = bpf_prog_load(cs[i].type, name.c_str(), (struct bpf_insn*)cs[i].data.data(),
                                cs[i].data.size(), license.c_str(), kvers, 0, log_buf.data(),
                                log_buf.size());
-            ALOGD("bpf_prog_load lib call for %s (%s) returned fd: %d (%s)\n", elfPath,
+            ALOGV("bpf_prog_load lib call for %s (%s) returned fd: %d (%s)\n", elfPath,
                   cs[i].name.c_str(), fd, (fd < 0 ? std::strerror(errno) : "no error"));
 
             if (fd < 0) {
                 vector<string> lines = android::base::Split(log_buf.data(), "\n");
 
-                ALOGW("bpf_prog_load - BEGIN log_buf contents:");
-                for (const auto& line : lines) ALOGW("%s", line.c_str());
-                ALOGW("bpf_prog_load - END log_buf contents.");
+                ALOGV("bpf_prog_load - BEGIN log_buf contents:");
+                for (const auto& line : lines) ALOGV("%s", line.c_str());
+                ALOGV("bpf_prog_load - END log_buf contents.");
 
                 if (cs[i].prog_def.has_value() && cs[i].prog_def->optional) {
-                    ALOGW("failed program is marked optional - continuing...");
+                    ALOGV("failed program is marked optional - continuing...");
                     continue;
                 }
                 ALOGE("non-optional program failed to load.");
@@ -779,7 +779,7 @@ int loadProg(const char* elfPath, bool* isCritical, const char* prefix) {
         ALOGE("Couldn't find license in %s\n", elfPath);
         return ret;
     } else {
-        ALOGD("Loading %s%s ELF object %s with license %s\n",
+        ALOGV("Loading %s%s ELF object %s with license %s\n",
               *isCritical ? "critical for " : "optional", *isCritical ? (char*)critical.data() : "",
               elfPath, (char*)license.data());
     }
@@ -839,7 +839,7 @@ int loadProg(const char* elfPath, bool* isCritical, const char* prefix) {
     }
 
     for (int i = 0; i < (int)mapFds.size(); i++)
-        ALOGD("map_fd found at %d is %d in %s\n", i, mapFds[i].get(), elfPath);
+        ALOGV("map_fd found at %d is %d in %s\n", i, mapFds[i].get(), elfPath);
 
     applyMapRelo(elfFile, mapFds, cs);
 
